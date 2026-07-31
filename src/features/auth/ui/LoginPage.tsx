@@ -6,7 +6,7 @@ import { useAuth } from "../application/AuthContext";
 export function LoginPage() {
   const { user, login, loading } = useAuth();
   const [email, setEmail] = useState("admin@leonel-platform.local");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("Pass123!");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 

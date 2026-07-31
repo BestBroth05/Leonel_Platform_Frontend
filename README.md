@@ -44,9 +44,17 @@ pnpm build
 
 ```text
 src/
-  app/          # router, shell, páginas
-  features/     # auth, (clients/orders/inventory más adelante)
+  app/          # router, shell, inicio
+  features/     # auth, clients, catalogs, orders (+ inventario en detalle)
   shared/       # api, types, utils
 ```
 
-Tipos de auth viven en `src/shared/types` (duplicados mínimos; sin paquete npm compartido entre repos).
+Tipos de auth/dominio viven en `src/shared/types` (duplicados mínimos; sin paquete npm compartido entre repos).
+
+## Qué probar en UI (Fase 2)
+
+1. Login → Inicio
+2. Clientes: alta / activar-desactivar
+3. Catálogos: marcas, tipos, destinos
+4. Pedidos: crear → abrir detalle
+5. En detalle: recepción, compostura, merma, salida parcial → ver saldo e historial

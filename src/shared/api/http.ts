@@ -1,4 +1,8 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+// Relative (/api) works on phone via LAN IP; absolute URL for direct API access.
+const API_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:3000").replace(
+  /\/$/,
+  "",
+);
 
 export class ApiClientError extends Error {
   constructor(
