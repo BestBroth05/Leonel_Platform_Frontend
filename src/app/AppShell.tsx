@@ -26,36 +26,44 @@ export function AppShell() {
     "/weekly-settlement": canWeeklySettlement,
   };
 
+  const visibleLinks = links.filter((link) => allowed[link.to]);
+
   return (
     <div className="shell">
       <header className="topbar">
         <div className="topbar-inner">
-          <div className="topbar-left">
-            <NavLink to="/" end className="brand-link" aria-label="Leonel Platform">
-              <img
-                className="brand-logo"
-                src={`${import.meta.env.BASE_URL}logo-leonel-platform.png`}
-                alt="Leonel Platform"
-              />
-            </NavLink>
-            <nav className="nav">
-              {links
-                .filter((link) => allowed[link.to])
-                .map((link) => (
-                  <NavLink
-                    key={link.to}
-                    to={link.to}
-                    end={"end" in link ? link.end : false}
-                    className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-                  >
-                    {link.label}
-                  </NavLink>
-                ))}
-            </nav>
-          </div>
+          <NavLink to="/" end className="brand-link" aria-label="Leonel Platform">
+            <img
+              className="brand-logo brand-logo-full"
+              src={`${import.meta.env.BASE_URL}logo-leonel-platform.png`}
+              alt="Leonel Platform"
+            />
+            <img
+              className="brand-logo brand-logo-mark"
+              src={`${import.meta.env.BASE_URL}logo-mark.png`}
+              alt="Leonel Platform"
+            />
+          </NavLink>
+
+          <nav className="nav" aria-label="Principal">
+            {visibleLinks.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={"end" in link ? link.end : false}
+                className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+              >
+                {link.label}
+              </NavLink>
+            ))}
+          </nav>
+
           <div className="topbar-right">
-            <span className="user-chip" title={user ? `${user.name} · ${roleLabel(user.roleSlug)}` : undefined}>
-              {user?.name}
+            <span
+              className="user-chip"
+              title={user ? `${user.name} · ${roleLabel(user.roleSlug)}` : undefined}
+            >
+              <span className="user-name">{user?.name}</span>
               {user ? <span className="user-role"> · {roleLabel(user.roleSlug)}</span> : null}
             </span>
             <button className="btn btn-ghost btn-small" type="button" onClick={() => void logout()}>

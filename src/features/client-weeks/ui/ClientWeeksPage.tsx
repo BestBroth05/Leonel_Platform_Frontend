@@ -311,7 +311,7 @@ export function ClientWeeksPage() {
       {error ? <p className="error">{error}</p> : null}
 
       <div className="toolbar">
-        <label className="field" style={{ margin: 0, minWidth: 240 }}>
+        <label className="field" style={{ margin: 0, minWidth: 0, flex: "1 1 220px" }}>
           <span>Cliente</span>
           <select
             className="input"
