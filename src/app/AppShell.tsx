@@ -29,36 +29,38 @@ export function AppShell() {
   return (
     <div className="shell">
       <header className="topbar">
-        <div className="topbar-left">
-          <NavLink to="/" end className="brand-link" aria-label="Leonel Platform">
-            <img
-              className="brand-logo"
-              src={`${import.meta.env.BASE_URL}logo-leonel-platform.png`}
-              alt="Leonel Platform"
-            />
-          </NavLink>
-          <nav className="nav">
-            {links
-              .filter((link) => allowed[link.to])
-              .map((link) => (
-                <NavLink
-                  key={link.to}
-                  to={link.to}
-                  end={"end" in link ? link.end : false}
-                  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-                >
-                  {link.label}
-                </NavLink>
-              ))}
-          </nav>
-        </div>
-        <div className="topbar-right">
-          <span className="user-chip">
-            {user?.name} · {user ? roleLabel(user.roleSlug) : ""}
-          </span>
-          <button className="btn btn-ghost btn-small" type="button" onClick={() => void logout()}>
-            Cerrar sesión
-          </button>
+        <div className="topbar-inner">
+          <div className="topbar-left">
+            <NavLink to="/" end className="brand-link" aria-label="Leonel Platform">
+              <img
+                className="brand-logo"
+                src={`${import.meta.env.BASE_URL}logo-leonel-platform.png`}
+                alt="Leonel Platform"
+              />
+            </NavLink>
+            <nav className="nav">
+              {links
+                .filter((link) => allowed[link.to])
+                .map((link) => (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    end={"end" in link ? link.end : false}
+                    className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+                  >
+                    {link.label}
+                  </NavLink>
+                ))}
+            </nav>
+          </div>
+          <div className="topbar-right">
+            <span className="user-chip">
+              {user?.name} · {user ? roleLabel(user.roleSlug) : ""}
+            </span>
+            <button className="btn btn-ghost btn-small" type="button" onClick={() => void logout()}>
+              Cerrar sesión
+            </button>
+          </div>
         </div>
       </header>
       <main className="main">
