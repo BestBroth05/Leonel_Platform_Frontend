@@ -7,8 +7,8 @@ const links = [
   { to: "/", label: "Inicio", end: true },
   { to: "/clients", label: "Clientes" },
   { to: "/catalogs", label: "Catálogos" },
-  { to: "/production-formats", label: "Formatos de producción" },
-  { to: "/weekly-settlement", label: "Cuadre semanal" },
+  { to: "/production-formats", label: "Formatos" },
+  { to: "/weekly-settlement", label: "Cuadre" },
 ] as const;
 
 export function AppShell() {
@@ -54,11 +54,12 @@ export function AppShell() {
             </nav>
           </div>
           <div className="topbar-right">
-            <span className="user-chip">
-              {user?.name} · {user ? roleLabel(user.roleSlug) : ""}
+            <span className="user-chip" title={user ? `${user.name} · ${roleLabel(user.roleSlug)}` : undefined}>
+              {user?.name}
+              {user ? <span className="user-role"> · {roleLabel(user.roleSlug)}</span> : null}
             </span>
             <button className="btn btn-ghost btn-small" type="button" onClick={() => void logout()}>
-              Cerrar sesión
+              Salir
             </button>
           </div>
         </div>
