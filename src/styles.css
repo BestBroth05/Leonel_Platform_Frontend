@@ -700,10 +700,6 @@ textarea {
   }
 
   .user-chip {
-    font-size: 0.82rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 60%;
+    max-width: 55%;
   }
 }
