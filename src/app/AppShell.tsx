@@ -30,7 +30,13 @@ export function AppShell() {
     <div className="shell">
       <header className="topbar">
         <div className="topbar-left">
-          <div className="brand">Leonel Platform</div>
+          <NavLink to="/" end className="brand-link" aria-label="Leonel Platform">
+            <img
+              className="brand-logo"
+              src={`${import.meta.env.BASE_URL}logo-leonel-platform.png`}
+              alt="Leonel Platform"
+            />
+          </NavLink>
           <nav className="nav">
             {links
               .filter((link) => allowed[link.to])

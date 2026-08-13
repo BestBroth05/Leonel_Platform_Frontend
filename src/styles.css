@@ -6,7 +6,7 @@
   --panel: #ffffff;
   --line: #e5e5e5;
   --line-strong: #d4d4d4;
-  --accent: #2f2f2f;
+  --accent: #2b6bff;
   --accent-ink: #ffffff;
   --danger: #b42318;
   --ok: #3f3f3f;
@@ -74,6 +74,29 @@ textarea {
   letter-spacing: -0.02em;
   white-space: nowrap;
   color: var(--ink);
+}
+
+.brand-link {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.brand-logo {
+  display: block;
+  height: 34px;
+  width: auto;
+  max-width: min(220px, 42vw);
+  object-fit: contain;
+}
+
+.login-logo {
+  display: block;
+  height: 42px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  margin-bottom: 0.85rem;
 }
 
 .nav {
@@ -159,12 +182,6 @@ textarea {
   box-shadow: var(--shadow);
 }
 
-.login-card .brand {
-  font-size: 0.92rem;
-  color: var(--muted);
-  font-weight: 600;
-}
-
 .login-card h1 {
   margin: 0.45rem 0 0.3rem;
   font-size: 1.65rem;
@@ -234,7 +251,7 @@ textarea {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #1a1a1a;
+  background: #1f54d6;
 }
 
 .btn-primary.btn-inline,
@@ -388,14 +405,14 @@ textarea {
 }
 
 .link {
-  color: #404040;
+  color: #2b6bff;
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .link:hover {
-  color: #171717;
+  color: #1f54d6;
 }
 
 .stats {

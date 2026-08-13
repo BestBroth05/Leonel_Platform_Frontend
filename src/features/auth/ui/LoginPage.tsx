@@ -34,7 +34,11 @@ export function LoginPage() {
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={onSubmit}>
-        <div className="brand">Leonel Platform</div>
+        <img
+          className="login-logo"
+          src={`${import.meta.env.BASE_URL}logo-leonel-platform.png`}
+          alt="Leonel Platform"
+        />
         <h1>Iniciar sesión</h1>
         <p>Plataforma de administración operativa para el taller familiar.</p>
         {error ? <p className="error">{error}</p> : null}
