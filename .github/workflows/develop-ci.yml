@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [develop]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   web:
     runs-on: ubuntu-latest
@@ -32,8 +41,28 @@ jobs:
 
       - name: Build
         env:
-          VITE_API_URL: http://localhost:3000
+          VITE_BASE_PATH: /Leonel_Platform_Frontend/
+          # Set in repo Settings → Secrets and variables → Actions → Variables
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'http://localhost:3000' }}
         run: pnpm build
 
-      - name: Docker build
-        run: docker build --build-arg VITE_API_URL=http://localhost:3000 -t leonel-platform-web:ci .
+      - name: SPA fallback for GitHub Pages
+        run: cp dist/index.html dist/404.html
+
+      - name: Upload Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    needs: web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -11,6 +11,7 @@ import type {
   StatusHistoryItem,
 } from "../../../shared/types/domain";
 import {
+  formatMxn,
   movementTypeLabel,
   orderStatusLabel,
   statusTransitionLabel,
@@ -26,13 +27,14 @@ import {
 } from "../infrastructure/orders-api";
 
 const OPS: MovementType[] = [
-  "RECEPTION",
-  "ADDITIONAL_ENTRY",
   "SEND_TO_REPAIR",
   "RETURN_FROM_REPAIR",
   "SHRINKAGE",
   "PARTIAL_EXIT",
   "FINAL_EXIT",
+  "SOBRANTE_LINEA",
+  "ADDITIONAL_ENTRY",
+  "RECEPTION",
 ];
 
 export function OrderDetailPage() {
@@ -49,11 +51,13 @@ export function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [type, setType] = useState<MovementType>("RECEPTION");
+  const [type, setType] = useState<MovementType>("SEND_TO_REPAIR");
   const [quantity, setQuantity] = useState("100");
   const [note, setNote] = useState("");
   const [destinationId, setDestinationId] = useState("");
-  const [expectedQuantity, setExpectedQuantity] = useState("");
+  const [purchaseOrder, setPurchaseOrder] = useState("");
+  const [costPerGarment, setCostPerGarment] = useState("");
+  const [allocByCut, setAllocByCut] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -68,7 +72,8 @@ export function OrderDetailPage() {
         listCatalog(api, "destinations", true),
       ]);
       setOrder(o);
-      setExpectedQuantity(String(o.expectedQuantity));
+      setPurchaseOrder(o.purchaseOrder ?? "");
+      setCostPerGarment(o.costPerGarment ?? "");
       setBalance(b.balance);
       setMovements(m);
       setHistory(h);
@@ -86,14 +91,17 @@ export function OrderDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  async function onSaveExpected(event: FormEvent) {
+  async function onSaveOrder(event: FormEvent) {
     event.preventDefault();
     if (!canWriteOrder || !id || !order) return;
     if (order.status === "CANCELLED" || order.status === "COMPLETED") return;
     setSaving(true);
     setError(null);
     try {
-      await updateOrder(api, id, { expectedQuantity: Number(expectedQuantity) });
+      await updateOrder(api, id, {
+        purchaseOrder: purchaseOrder.trim() || null,
+        costPerGarment: costPerGarment.trim() || null,
+      });
       await load();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "No se pudo actualizar");
@@ -104,11 +112,32 @@ export function OrderDetailPage() {
 
   async function onMovement(event: FormEvent) {
     event.preventDefault();
-    if (!canWriteInventory || !id) return;
+    if (!canWriteInventory || !id || !order) return;
     setSaving(true);
     setError(null);
     try {
       const needsDestination = type === "PARTIAL_EXIT" || type === "FINAL_EXIT";
+      const multiCut = order.cuts.length > 1;
+      const cutAllocations = multiCut
+        ? order.cuts
+            .map((c) => ({
+              orderCutId: c.id,
+              quantity: Number(allocByCut[c.id] || 0),
+            }))
+            .filter((a) => a.quantity > 0)
+        : undefined;
+
+      if (multiCut && cutAllocations && cutAllocations.length > 0) {
+        const allocSum = cutAllocations.reduce((s, a) => s + a.quantity, 0);
+        if (allocSum !== Number(quantity)) {
+          setError(
+            "La suma de cantidades por corte debe coincidir con la cantidad del movimiento",
+          );
+          setSaving(false);
+          return;
+        }
+      }
+
       await createMovement(
         api,
         id,
@@ -117,10 +146,14 @@ export function OrderDetailPage() {
           quantity: Number(quantity),
           note: note.trim() || null,
           destinationId: needsDestination ? destinationId || null : null,
+          ...(cutAllocations && cutAllocations.length > 0
+            ? { cutAllocations }
+            : {}),
         },
         crypto.randomUUID(),
       );
       setNote("");
+      setAllocByCut({});
       await load();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "No se pudo registrar");
@@ -141,28 +174,41 @@ export function OrderDetailPage() {
     return (
       <section className="page">
         <p className="error">{error ?? "Pedido no encontrado"}</p>
-        <Link className="link" to="/orders">
+        <Link className="link" to="/production-formats">
           Volver
         </Link>
       </section>
     );
   }
 
+  const formatLink = order.productionFormatId
+    ? `/production-formats/${order.productionFormatId}`
+    : "/production-formats";
+  const multiCut = order.cuts.length > 1;
+
   return (
     <section className="page">
       <header className="page-header">
         <div>
           <p className="muted">
-            <Link className="link" to="/orders">
-              Pedidos
-            </Link>{" "}
+            <Link className="link" to="/production-formats">
+              Formatos de producción
+            </Link>
+            {order.productionFormatNumber ? (
+              <>
+                {" "}
+                /{" "}
+                <Link className="link" to={formatLink}>
+                  {order.productionFormatNumber}
+                </Link>
+              </>
+            ) : null}{" "}
             / {order.number}
           </p>
           <h1>Pedido {order.number}</h1>
           <p className="muted">
-            {order.clientName}
-            {order.brandName ? ` · ${order.brandName}` : ""}
-            {order.pantTypeName ? ` · ${order.pantTypeName}` : ""}
+            {order.clientName} · Cantidad total{" "}
+            {order.orderQuantity.toLocaleString("es-MX")}
           </p>
         </div>
         <span className="badge">{orderStatusLabel(order.status)}</span>
@@ -170,23 +216,80 @@ export function OrderDetailPage() {
 
       {error ? <p className="error">{error}</p> : null}
 
+      {balance?.warnings?.length ? (
+        <div className="panel">
+          {balance.warnings.map((w) => (
+            <p key={w} className="error">
+              {w}
+            </p>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="panel table-wrap">
+        <h2>Cortes del pedido</h2>
+        {order.cuts.length === 0 ? (
+          <p className="muted">Sin cortes asignados</p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Corte</th>
+                <th>Estilo</th>
+                <th>Plan</th>
+                <th>Cantidad aportada</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.cuts.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.cutNumber}</td>
+                  <td>{c.cutStyle}</td>
+                  <td>{c.cutWorkPlan}</td>
+                  <td>{c.assignedQuantity.toLocaleString("es-MX")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <p className="muted">
+          Total: {order.orderQuantity.toLocaleString("es-MX")} · OC:{" "}
+          {order.purchaseOrder ?? "—"} · Costo: {formatMxn(order.costPerGarment)} ·
+          Importe est.: {formatMxn(order.estimatedAmount)}
+        </p>
+      </div>
+
       {canWriteOrder &&
       order.status !== "CANCELLED" &&
       order.status !== "COMPLETED" ? (
-        <form className="panel form-inline" onSubmit={onSaveExpected}>
-          <label className="field grow">
-            <span>Cantidad esperada</span>
+        <form className="panel form-grid" onSubmit={onSaveOrder}>
+          <h2>Datos del pedido</h2>
+          <label className="field">
+            <span>Orden de compra</span>
+            <input
+              className="input"
+              value={purchaseOrder}
+              onChange={(e) => setPurchaseOrder(e.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Costo por prenda (MXN)</span>
             <input
               className="input"
               type="number"
-              min={1}
-              value={expectedQuantity}
-              onChange={(e) => setExpectedQuantity(e.target.value)}
-              required
+              min={0}
+              step="0.01"
+              value={costPerGarment}
+              onChange={(e) => setCostPerGarment(e.target.value)}
             />
           </label>
+          <p className="muted">
+            Cantidad total (suma de cortes):{" "}
+            {order.orderQuantity.toLocaleString("es-MX")}. Importe estimado:{" "}
+            {formatMxn(order.estimatedAmount)}
+          </p>
           <button className="btn btn-primary btn-inline" type="submit" disabled={saving}>
-            {saving ? "Guardando…" : "Actualizar esperado"}
+            {saving ? "Guardando…" : "Guardar"}
           </button>
         </form>
       ) : null}
@@ -194,12 +297,8 @@ export function OrderDetailPage() {
       {balance ? (
         <div className="stats">
           <div className="stat">
-            <span>Esperado</span>
-            <strong>{balance.expectedQuantity.toLocaleString("es-MX")}</strong>
-          </div>
-          <div className="stat">
-            <span>Recibido</span>
-            <strong>{balance.received.toLocaleString("es-MX")}</strong>
+            <span>Cantidad inicial</span>
+            <strong>{balance.assignedQuantity.toLocaleString("es-MX")}</strong>
           </div>
           <div className="stat">
             <span>Disponible</span>
@@ -214,8 +313,16 @@ export function OrderDetailPage() {
             <strong>{balance.shrinkage.toLocaleString("es-MX")}</strong>
           </div>
           <div className="stat">
-            <span>Enviado</span>
+            <span>Entregado</span>
             <strong>{balance.shipped.toLocaleString("es-MX")}</strong>
+          </div>
+          <div className="stat">
+            <span>Sobrante de línea</span>
+            <strong>{balance.lineSurplus.toLocaleString("es-MX")}</strong>
+          </div>
+          <div className="stat">
+            <span>Pendiente</span>
+            <strong>{balance.pendingToAccount.toLocaleString("es-MX")}</strong>
           </div>
         </div>
       ) : null}
@@ -267,6 +374,48 @@ export function OrderDetailPage() {
               </select>
             </label>
           )}
+          {multiCut ? (
+            <div className="field" style={{ gridColumn: "1 / -1" }}>
+              <span>Distribución por corte (opcional si hay un solo corte)</span>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Corte</th>
+                      <th>Asignado</th>
+                      <th>Cantidad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.cuts.map((c) => (
+                      <tr key={c.id}>
+                        <td>{c.cutNumber}</td>
+                        <td>{c.assignedQuantity.toLocaleString("es-MX")}</td>
+                        <td>
+                          <input
+                            className="input"
+                            type="number"
+                            min={0}
+                            value={allocByCut[c.id] ?? ""}
+                            onChange={(e) =>
+                              setAllocByCut((prev) => ({
+                                ...prev,
+                                [c.id]: e.target.value,
+                              }))
+                            }
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="muted">
+                Con varios cortes, indica cuánto aplica a cada uno (la suma debe
+                coincidir con la cantidad).
+              </p>
+            </div>
+          ) : null}
           <label className="field">
             <span>Nota</span>
             <input
@@ -299,7 +448,9 @@ export function OrderDetailPage() {
               <tbody>
                 {movements.map((m) => (
                   <tr key={m.id} className={m.cancelledAt ? "row-muted" : undefined}>
-                    <td>{new Date(m.createdAt).toLocaleString("es-MX")}</td>
+                    <td>
+                      {new Date(m.occurredAt || m.createdAt).toLocaleString("es-MX")}
+                    </td>
                     <td>
                       {movementTypeLabel(m.type)}
                       {m.cancelledAt ? " (cancelado)" : ""}

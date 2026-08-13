@@ -11,14 +11,27 @@ import type { useApi } from "../../../shared/api/use-api";
 
 type Api = ReturnType<typeof useApi>;
 
+export type CutAssignmentInput = {
+  cutId: string;
+  assignedQuantity: number;
+};
+
 export function listOrders(
   api: Api,
-  params: { q?: string; status?: OrderStatus; page?: number } = {},
+  params: {
+    q?: string;
+    status?: OrderStatus;
+    page?: number;
+    productionFormatId?: string;
+  } = {},
 ) {
   const search = new URLSearchParams();
   if (params.q) search.set("q", params.q);
   if (params.status) search.set("status", params.status);
   if (params.page) search.set("page", String(params.page));
+  if (params.productionFormatId) {
+    search.set("productionFormatId", params.productionFormatId);
+  }
   const qs = search.toString();
   return api.get<Paginated<Order>>(`/orders${qs ? `?${qs}` : ""}`);
 }
@@ -31,10 +44,13 @@ export function createOrder(
   api: Api,
   body: {
     number: string;
-    clientId: string;
+    clientId?: string;
+    productionFormatId: string;
+    cuts: CutAssignmentInput[];
     brandId?: string | null;
     pantTypeId?: string | null;
-    expectedQuantity: number;
+    purchaseOrder?: string | null;
+    costPerGarment?: string | null;
     notes?: string | null;
   },
 ) {
@@ -45,7 +61,12 @@ export function updateOrder(
   api: Api,
   id: string,
   body: {
-    expectedQuantity?: number;
+    cuts?: CutAssignmentInput[];
+    purchaseOrder?: string | null;
+    costPerGarment?: string | null;
+    brandId?: string | null;
+    pantTypeId?: string | null;
+    notes?: string | null;
   },
 ) {
   return api.patch<Order>(`/orders/${id}`, body);
@@ -70,6 +91,11 @@ export function listMovements(api: Api, id: string) {
   return api.get<Movement[]>(`/orders/${id}/movements`);
 }
 
+export type MovementCutAllocationInput = {
+  orderCutId: string;
+  quantity: number;
+};
+
 export function createMovement(
   api: Api,
   id: string,
@@ -78,6 +104,7 @@ export function createMovement(
     quantity: number;
     note?: string | null;
     destinationId?: string | null;
+    cutAllocations?: MovementCutAllocationInput[];
   },
   idempotencyKey?: string,
 ) {

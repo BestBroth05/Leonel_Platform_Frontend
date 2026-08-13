@@ -4,10 +4,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { AuthUser } from "../../../shared/types/auth";
+import { ApiClientError, apiRequest } from "../../../shared/api/http";
 import {
   loginRequest,
   logoutRequest,
@@ -27,6 +29,8 @@ type AuthContextValue = {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Authenticated API call with automatic token refresh + one retry on 401 */
+  authorizedRequest: <T>(path: string, init?: RequestInit) => Promise<T>;
 };
 
 const STORAGE_KEY = "leonel-platform.session";
@@ -46,8 +50,11 @@ function readStoredSession(): Session | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(() => readStoredSession());
   const [loading, setLoading] = useState(true);
+  const sessionRef = useRef<Session | null>(session);
+  const refreshInFlight = useRef<Promise<Session> | null>(null);
 
   const persist = useCallback((next: Session | null) => {
+    sessionRef.current = next;
     setSession(next);
     if (next) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -55,6 +62,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(STORAGE_KEY);
     }
   }, []);
+
+  const refreshSession = useCallback(async (): Promise<Session> => {
+    if (refreshInFlight.current) {
+      return refreshInFlight.current;
+    }
+
+    const promise = (async () => {
+      const current = sessionRef.current ?? readStoredSession();
+      if (!current?.refreshToken) {
+        throw new ApiClientError("Sesión expirada", 401, "UNAUTHORIZED");
+      }
+
+      const refreshed = await refreshRequest(current.refreshToken);
+      const next: Session = {
+        user: refreshed.user,
+        accessToken: refreshed.tokens.accessToken,
+        refreshToken: refreshed.tokens.refreshToken,
+      };
+      persist(next);
+      return next;
+    })().finally(() => {
+      refreshInFlight.current = null;
+    });
+
+    refreshInFlight.current = promise;
+    return promise;
+  }, [persist]);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,14 +145,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    const refreshToken = session?.refreshToken;
+    const refreshToken = sessionRef.current?.refreshToken;
     persist(null);
     try {
       await logoutRequest(refreshToken);
     } catch {
       // ignore network errors on logout
     }
-  }, [persist, session?.refreshToken]);
+  }, [persist]);
+
+  const authorizedRequest = useCallback(
+    async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
+      const current = sessionRef.current ?? readStoredSession();
+      if (!current?.accessToken) {
+        throw new ApiClientError("Sin sesión", 401, "UNAUTHORIZED");
+      }
+
+      try {
+        return await apiRequest<T>(path, {
+          ...init,
+          accessToken: current.accessToken,
+        });
+      } catch (err) {
+        const isUnauthorized =
+          err instanceof ApiClientError &&
+          (err.status === 401 || err.code === "UNAUTHORIZED");
+        if (!isUnauthorized) {
+          throw err;
+        }
+
+        try {
+          const next = await refreshSession();
+          return await apiRequest<T>(path, {
+            ...init,
+            accessToken: next.accessToken,
+          });
+        } catch (refreshErr) {
+          persist(null);
+          throw refreshErr instanceof ApiClientError
+            ? refreshErr
+            : new ApiClientError("Sesión expirada. Vuelve a iniciar sesión.", 401);
+        }
+      }
+    },
+    [persist, refreshSession],
+  );
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -127,8 +198,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       login,
       logout,
+      authorizedRequest,
     }),
-    [session, loading, login, logout],
+    [session, loading, login, logout, authorizedRequest],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

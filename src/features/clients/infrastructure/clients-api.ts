@@ -1,4 +1,4 @@
-import type { Client, Paginated } from "../../../shared/types/domain";
+import type { Client, Paginated, Weekday } from "../../../shared/types/domain";
 import type { useApi } from "../../../shared/api/use-api";
 
 type Api = ReturnType<typeof useApi>;
@@ -16,15 +16,20 @@ export function listClients(
   return api.get<Paginated<Client>>(`/clients${qs ? `?${qs}` : ""}`);
 }
 
+export function getClient(api: Api, id: string) {
+  return api.get<Client>(`/clients/${id}`);
+}
+
 export function createClient(
   api: Api,
   body: {
     name: string;
     contactName?: string;
-    phone?: string;
     email?: string;
     rfc?: string;
     notes?: string;
+    weekOpensOn?: Weekday | null;
+    weekClosesOn?: Weekday | null;
   },
 ) {
   return api.post<Client>("/clients", body);
@@ -36,10 +41,11 @@ export function updateClient(
   body: Partial<{
     name: string;
     contactName: string | null;
-    phone: string | null;
     email: string | null;
     rfc: string | null;
     notes: string | null;
+    weekOpensOn: Weekday | null;
+    weekClosesOn: Weekday | null;
     isActive: boolean;
   }>,
 ) {

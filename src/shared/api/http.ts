@@ -9,6 +9,7 @@ export class ApiClientError extends Error {
     message: string,
     public readonly status: number,
     public readonly code?: string,
+    public readonly details?: unknown,
   ) {
     super(message);
     this.name = "ApiClientError";
@@ -31,7 +32,7 @@ export async function apiRequest<T>(
   });
 
   const data = (await response.json().catch(() => ({}))) as {
-    error?: { code?: string; message?: string };
+    error?: { code?: string; message?: string; details?: unknown };
   };
 
   if (!response.ok) {
@@ -39,6 +40,7 @@ export async function apiRequest<T>(
       data.error?.message ?? "Error de API",
       response.status,
       data.error?.code,
+      data.error?.details,
     );
   }
 

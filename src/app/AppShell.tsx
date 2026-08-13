@@ -7,7 +7,8 @@ const links = [
   { to: "/", label: "Inicio", end: true },
   { to: "/clients", label: "Clientes" },
   { to: "/catalogs", label: "Catálogos" },
-  { to: "/orders", label: "Pedidos" },
+  { to: "/production-formats", label: "Formatos de producción" },
+  { to: "/weekly-settlement", label: "Cuadre semanal" },
 ] as const;
 
 export function AppShell() {
@@ -15,12 +16,14 @@ export function AppShell() {
   const canClients = useCan("clients.read");
   const canCatalogs = useCan("catalogs.read");
   const canOrders = useCan("orders.read");
+  const canWeeklySettlement = useCan("clients.read", "orders.read");
 
-  const allowed = {
+  const allowed: Record<string, boolean> = {
     "/": true,
     "/clients": canClients,
     "/catalogs": canCatalogs,
-    "/orders": canOrders,
+    "/production-formats": canOrders,
+    "/weekly-settlement": canWeeklySettlement,
   };
 
   return (

@@ -31,6 +31,19 @@ pnpm local:up
 
 Compose en Backend construye este repo con contexto `../leonel-platform-frontend`.
 
+## GitHub Pages
+
+Deploy automático desde `develop` vía Actions:
+
+`https://bestbroth05.github.io/Leonel_Platform_Frontend/`
+
+Requisitos en el repo:
+
+1. Pages → Source: **GitHub Actions**
+2. Variable `VITE_API_URL` con la URL pública de la API
+
+Detalle: [`.github/workflows/README.md`](.github/workflows/README.md)
+
 ## Comandos
 
 ```bash

@@ -1,12 +1,35 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ApiClientError } from "../../../shared/api/http";
 import { useApi, useCan } from "../../../shared/api/use-api";
-import type { Client } from "../../../shared/types/domain";
-import {
-  createClient,
-  listClients,
-  updateClient,
-} from "../infrastructure/clients-api";
+import { weekdayLabel } from "../../../shared/i18n/labels";
+import { WEEKDAYS, type Client, type Weekday } from "../../../shared/types/domain";
+import { createClient, listClients, updateClient } from "../infrastructure/clients-api";
+
+function WeekdaySelect({
+  value,
+  onChange,
+  id,
+}: {
+  value: Weekday | "";
+  onChange: (value: Weekday | "") => void;
+  id: string;
+}) {
+  return (
+    <select
+      id={id}
+      className="input"
+      value={value}
+      onChange={(e) => onChange((e.target.value || "") as Weekday | "")}
+    >
+      <option value="">—</option>
+      {WEEKDAYS.map((day) => (
+        <option key={day} value={day}>
+          {weekdayLabel(day)}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 export function ClientsPage() {
   const api = useApi();
@@ -17,12 +40,14 @@ export function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [weekOpensOn, setWeekOpensOn] = useState<Weekday | "">("");
+  const [weekClosesOn, setWeekClosesOn] = useState<Weekday | "">("");
   const [saving, setSaving] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [editPhone, setEditPhone] = useState("");
+  const [editWeekOpensOn, setEditWeekOpensOn] = useState<Weekday | "">("");
+  const [editWeekClosesOn, setEditWeekClosesOn] = useState<Weekday | "">("");
 
   const load = useCallback(async (search = q) => {
     setLoading(true);
@@ -49,9 +74,14 @@ export function ClientsPage() {
     setSaving(true);
     setError(null);
     try {
-      await createClient(api, { name: name.trim(), phone: phone.trim() || undefined });
+      await createClient(api, {
+        name: name.trim(),
+        weekOpensOn: weekOpensOn || null,
+        weekClosesOn: weekClosesOn || null,
+      });
       setName("");
-      setPhone("");
+      setWeekOpensOn("");
+      setWeekClosesOn("");
       await load();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "No se pudo crear");
@@ -63,14 +93,16 @@ export function ClientsPage() {
   function startEdit(client: Client) {
     setEditingId(client.id);
     setEditName(client.name);
-    setEditPhone(client.phone ?? "");
+    setEditWeekOpensOn(client.weekOpensOn ?? "");
+    setEditWeekClosesOn(client.weekClosesOn ?? "");
     setError(null);
   }
 
   function cancelEdit() {
     setEditingId(null);
     setEditName("");
-    setEditPhone("");
+    setEditWeekOpensOn("");
+    setEditWeekClosesOn("");
   }
 
   async function saveEdit(event: FormEvent) {
@@ -81,7 +113,8 @@ export function ClientsPage() {
     try {
       await updateClient(api, editingId, {
         name: editName.trim(),
-        phone: editPhone.trim() || null,
+        weekOpensOn: editWeekOpensOn || null,
+        weekClosesOn: editWeekClosesOn || null,
       });
       cancelEdit();
       await load();
@@ -139,11 +172,19 @@ export function ClientsPage() {
             />
           </label>
           <label className="field">
-            <span>Teléfono</span>
-            <input
-              className="input"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+            <span>Abre semana el</span>
+            <WeekdaySelect
+              id="create-week-opens"
+              value={weekOpensOn}
+              onChange={setWeekOpensOn}
+            />
+          </label>
+          <label className="field">
+            <span>Cierra semana el</span>
+            <WeekdaySelect
+              id="create-week-closes"
+              value={weekClosesOn}
+              onChange={setWeekClosesOn}
             />
           </label>
           <button className="btn btn-primary btn-inline" type="submit" disabled={saving}>
@@ -165,11 +206,19 @@ export function ClientsPage() {
             />
           </label>
           <label className="field">
-            <span>Teléfono</span>
-            <input
-              className="input"
-              value={editPhone}
-              onChange={(e) => setEditPhone(e.target.value)}
+            <span>Abre semana el</span>
+            <WeekdaySelect
+              id="edit-week-opens"
+              value={editWeekOpensOn}
+              onChange={setEditWeekOpensOn}
+            />
+          </label>
+          <label className="field">
+            <span>Cierra semana el</span>
+            <WeekdaySelect
+              id="edit-week-closes"
+              value={editWeekClosesOn}
+              onChange={setEditWeekClosesOn}
             />
           </label>
           <div className="actions-row">
@@ -193,7 +242,8 @@ export function ClientsPage() {
             <thead>
               <tr>
                 <th>Nombre</th>
-                <th>Teléfono</th>
+                <th>Abre</th>
+                <th>Cierra</th>
                 <th>Estado</th>
                 {canWrite ? <th>Acciones</th> : null}
               </tr>
@@ -202,7 +252,8 @@ export function ClientsPage() {
               {items.map((client) => (
                 <tr key={client.id} className={editingId === client.id ? "row-editing" : undefined}>
                   <td>{client.name}</td>
-                  <td>{client.phone ?? "—"}</td>
+                  <td>{weekdayLabel(client.weekOpensOn)}</td>
+                  <td>{weekdayLabel(client.weekClosesOn)}</td>
                   <td>
                     <span className={client.isActive ? "badge ok" : "badge off"}>
                       {client.isActive ? "Activo" : "Inactivo"}
