@@ -6,7 +6,13 @@ export function RequireAuth() {
   if (loading) {
     return (
       <div className="login-page">
-        <p>Cargando sesión…</p>
+        <div className="login-card" style={{ textAlign: "center" }}>
+          <p style={{ margin: 0, fontWeight: 600 }}>Cargando sesión…</p>
+          <p className="muted" style={{ marginTop: "0.75rem" }}>
+            Si es la primera vez del día, el servidor en Render puede tardar hasta un minuto
+            en despertar. No cierres la página.
+          </p>
+        </div>
       </div>
     );
   }

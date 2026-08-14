@@ -41,6 +41,9 @@ export function LoginPage() {
         />
         <h1>Iniciar sesión</h1>
         <p>Plataforma de administración operativa para el taller familiar.</p>
+        <p className="muted" style={{ marginTop: "-0.5rem" }}>
+          Si el botón se queda en “Entrando…”, el API está despertando (hasta ~1 min).
+        </p>
         {error ? <p className="error">{error}</p> : null}
         <label className="field">
           <span>Correo</span>

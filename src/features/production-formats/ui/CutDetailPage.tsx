@@ -191,6 +191,13 @@ export function CutDetailPage() {
       {canWrite ? (
         <form className="panel form-grid" onSubmit={onCreate}>
           <h2>Registrar recepción parcial</h2>
+          <p className="muted">
+            Requiere una semana OPEN del cliente del formato. Si falla, ábrela en{" "}
+            <Link className="link" to="/weekly-settlement">
+              Cuadre
+            </Link>
+            .
+          </p>
           <label className="field">
             <span>Folio</span>
             <input
