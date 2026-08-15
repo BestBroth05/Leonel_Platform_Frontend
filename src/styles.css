@@ -27,6 +27,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 body {
@@ -56,47 +57,44 @@ textarea {
   min-height: 100dvh;
   display: grid;
   grid-template-rows: auto 1fr;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 .topbar {
   border-bottom: 1px solid var(--line);
-  background: #ffffffcc;
-  backdrop-filter: blur(10px);
+  background: #fffffff2;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 40;
   padding-top: env(safe-area-inset-top);
 }
 
 .topbar-inner {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas: "brand menu";
+  display: flex;
   align-items: center;
-  column-gap: 0.75rem;
-  row-gap: 0;
+  justify-content: space-between;
+  gap: 0.75rem;
   width: 100%;
-  padding: 0.7rem var(--page-pad);
+  min-height: 56px;
+  padding: 0.55rem var(--page-pad);
   padding-left: max(var(--page-pad), env(safe-area-inset-left));
   padding-right: max(var(--page-pad), env(safe-area-inset-right));
 }
 
 .brand-link {
-  grid-area: brand;
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  justify-self: start;
 }
 
 .nav-desktop,
 .topbar-right-desktop {
-  display: none;
+  display: none !important;
 }
 
 .menu-toggle {
-  grid-area: menu;
-  justify-self: end;
   width: 44px;
   height: 44px;
   border: 1px solid var(--line-strong);
@@ -107,87 +105,98 @@ textarea {
   justify-content: center;
   cursor: pointer;
   padding: 0;
+  flex-shrink: 0;
 }
 
-.menu-toggle-bars {
-  position: relative;
-  content: none;
-}
-
-.menu-toggle-bars::before,
-.menu-toggle-bars::after {
-  display: block;
+.menu-toggle-icon {
+  display: grid;
+  gap: 4px;
   width: 18px;
+}
+
+.menu-toggle-icon span {
+  display: block;
   height: 2px;
+  width: 100%;
   background: var(--ink);
   border-radius: 2px;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-  content: "";
-  position: absolute;
-  left: 0;
 }
 
-.menu-toggle-bars {
-  display: block;
-  width: 18px;
-  height: 2px;
-  background: var(--ink);
-  border-radius: 2px;
-  transition: background 0.2s ease;
+.shell-menu-open .menu-toggle-icon span:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
 }
 
-.menu-toggle-bars::before {
-  top: -6px;
+.shell-menu-open .menu-toggle-icon span:nth-child(2) {
+  opacity: 0;
 }
 
-.menu-toggle-bars::after {
-  top: 6px;
+.shell-menu-open .menu-toggle-icon span:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
 }
 
-.menu-toggle-bars[data-open="true"] {
-  background: transparent;
+.menu-toggle-icon span {
+  transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
-.menu-toggle-bars[data-open="true"]::before {
-  top: 0;
-  transform: rotate(45deg);
-}
-
-.menu-toggle-bars[data-open="true"]::after {
-  top: 0;
-  transform: rotate(-45deg);
+.mobile-nav-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
 }
 
 .menu-backdrop {
-  position: fixed;
+  position: absolute;
   inset: 0;
   border: 0;
-  background: #00000055;
-  z-index: 20;
+  margin: 0;
+  padding: 0;
+  background: #00000066;
   cursor: pointer;
 }
 
 .mobile-menu {
-  position: fixed;
+  position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(84vw, 320px);
+  width: min(86vw, 320px);
   background: #fff;
-  z-index: 30;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: calc(0.9rem + env(safe-area-inset-top)) 1rem
+  gap: 0.85rem;
+  padding: calc(0.85rem + env(safe-area-inset-top)) 1rem
     calc(1rem + env(safe-area-inset-bottom));
-  box-shadow: -8px 0 24px #00000018;
+  box-shadow: -10px 0 28px #00000022;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-menu-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.menu-close {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .mobile-menu-user {
   display: grid;
   gap: 0.15rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--line);
+  min-width: 0;
 }
 
 .mobile-menu-user strong {
@@ -209,22 +218,23 @@ textarea {
 .mobile-menu-link {
   display: flex;
   align-items: center;
-  min-height: 44px;
-  padding: 0.7rem 0.85rem;
-  border-radius: 10px;
+  min-height: 48px;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
   color: var(--ink);
-  font-weight: 550;
+  font-weight: 600;
+  font-size: 1rem;
 }
 
-.mobile-menu-link.active,
-.mobile-menu-link:hover {
+.mobile-menu-link.active {
   background: #eef3ff;
   color: #1f54d6;
 }
 
 .mobile-menu-logout {
   width: 100%;
-  min-height: 44px;
+  min-height: 48px;
+  margin-top: auto;
 }
 
 .brand-logo {
@@ -241,7 +251,7 @@ textarea {
 
 .brand-logo-mark {
   display: block;
-  height: 34px;
+  height: 32px;
   width: auto;
 }
 
@@ -252,20 +262,6 @@ textarea {
   max-width: min(100%, 260px);
   object-fit: contain;
   margin-bottom: 0.85rem;
-}
-
-.nav {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.35rem;
-  min-width: 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.nav::-webkit-scrollbar {
-  display: none;
 }
 
 .nav-link {
@@ -806,7 +802,7 @@ textarea {
 
 .table {
   font-size: 0.88rem;
-  min-width: 480px;
+  min-width: 420px;
 }
 
 .panel {
@@ -821,7 +817,7 @@ textarea {
   flex: 1 1 auto;
 }
 
-@media (min-width: 720px) {
+@media (min-width: 900px) {
   .brand-logo-full {
     display: block;
   }
@@ -839,32 +835,28 @@ textarea {
   }
 
   .menu-toggle,
-  .menu-backdrop,
-  .mobile-menu {
+  .mobile-nav-layer {
     display: none !important;
   }
 
   .topbar-inner {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "brand nav actions";
-    column-gap: 1rem;
-    row-gap: 0;
-    padding-block: 0.7rem;
+    gap: 1rem;
   }
 
   .nav-desktop {
-    display: flex;
-    grid-area: nav;
-    width: auto;
-    justify-content: flex-start;
+    display: flex !important;
+    flex: 1;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    min-width: 0;
   }
 
   .topbar-right-desktop {
-    display: flex;
-    grid-area: actions;
+    display: flex !important;
     align-items: center;
     gap: 0.75rem;
-    justify-self: end;
+    flex-shrink: 0;
   }
 
   .page-header {
@@ -946,7 +938,7 @@ textarea {
   }
 }
 
-@media (max-width: 719px) {
+@media (max-width: 899px) {
   .actions-cell {
     flex-direction: column;
     align-items: stretch;
