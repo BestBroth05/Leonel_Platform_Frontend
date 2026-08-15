@@ -33,17 +33,21 @@ export async function apiRequest<T>(
   init: RequestInit & { accessToken?: string } = {},
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
-  if (init.accessToken) {
-    headers.set("Authorization", `Bearer ${init.accessToken}`);
+  const { accessToken, ...fetchInit } = init;
+  // Fastify rejects empty bodies when Content-Type is application/json (DELETE/GET).
+  if (fetchInit.body != null) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
   const { signal, clear } = timeoutSignal(REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(`${API_URL}${path}`, {
-      ...init,
+      ...fetchInit,
       headers,
-      signal: init.signal ?? signal,
+      signal: fetchInit.signal ?? signal,
     });
 
     const data = (await response.json().catch(() => ({}))) as {
