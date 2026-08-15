@@ -336,6 +336,16 @@ textarea {
   background: var(--soft);
 }
 
+.btn-danger {
+  background: #fff;
+  border: 1px solid #f0b4ae;
+  color: var(--danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #fff5f4;
+}
+
 .btn-small {
   padding: 0.38rem 0.65rem;
   font-size: 0.88rem;

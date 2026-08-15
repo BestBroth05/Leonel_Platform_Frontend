@@ -20,3 +20,7 @@ export function updateCatalogItem(
 ) {
   return api.patch<CatalogItem>(`/catalogs/${kind}/${id}`, body);
 }
+
+export function deleteCatalogItem(api: Api, kind: CatalogKind, id: string) {
+  return api.delete<{ ok: boolean }>(`/catalogs/${kind}/${id}`);
+}

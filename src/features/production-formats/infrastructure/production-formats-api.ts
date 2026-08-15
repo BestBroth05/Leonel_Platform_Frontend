@@ -39,6 +39,10 @@ export function updateProductionFormat(
   return api.patch<ProductionFormat>(`/production-formats/${id}`, body);
 }
 
+export function deleteProductionFormat(api: Api, id: string) {
+  return api.delete<{ ok: boolean }>(`/production-formats/${id}`);
+}
+
 export function listCuts(api: Api, formatId: string) {
   return api.get<Cut[]>(`/production-formats/${formatId}/cuts`);
 }
@@ -54,6 +58,10 @@ export function createCut(
   },
 ) {
   return api.post<Cut>(`/production-formats/${formatId}/cuts`, body);
+}
+
+export function deleteCut(api: Api, id: string) {
+  return api.delete<{ ok: boolean }>(`/cuts/${id}`);
 }
 
 export function getCut(api: Api, id: string) {

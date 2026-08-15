@@ -81,6 +81,10 @@ export function transitionOrder(
   return api.post<Order>(`/orders/${id}/transition`, { status, note });
 }
 
+export function deleteOrder(api: Api, id: string) {
+  return api.delete<{ ok: boolean }>(`/orders/${id}`);
+}
+
 export function getOrderBalance(api: Api, id: string) {
   return api.get<{ orderId: string; balance: OrderBalance }>(
     `/orders/${id}/balance`,

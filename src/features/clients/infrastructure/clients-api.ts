@@ -51,3 +51,7 @@ export function updateClient(
 ) {
   return api.patch<Client>(`/clients/${id}`, body);
 }
+
+export function deleteClient(api: Api, id: string) {
+  return api.delete<{ ok: boolean }>(`/clients/${id}`);
+}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiClientError } from "../../../shared/api/http";
 import { useApi, useCan } from "../../../shared/api/use-api";
 import type {
@@ -19,6 +19,7 @@ import {
 import { listCatalog } from "../../catalogs/infrastructure/catalogs-api";
 import {
   createMovement,
+  deleteOrder,
   getOrder,
   getOrderBalance,
   getStatusHistory,
@@ -39,6 +40,7 @@ const OPS: MovementType[] = [
 
 export function OrderDetailPage() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const api = useApi();
   const canWriteInventory = useCan("inventory.write");
   const canWriteOrder = useCan("orders.write");
@@ -107,6 +109,22 @@ export function OrderDetailPage() {
       setError(err instanceof ApiClientError ? err.message : "No se pudo actualizar");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onDeleteOrder() {
+    if (!canWriteOrder || !order) return;
+    if (!window.confirm(`¿Eliminar el pedido ${order.number}?`)) return;
+    setError(null);
+    try {
+      await deleteOrder(api, order.id);
+      navigate(
+        order.productionFormatId
+          ? `/production-formats/${order.productionFormatId}`
+          : "/production-formats",
+      );
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "No se pudo eliminar");
     }
   }
 
@@ -211,7 +229,18 @@ export function OrderDetailPage() {
             {order.orderQuantity.toLocaleString("es-MX")}
           </p>
         </div>
-        <span className="badge">{orderStatusLabel(order.status)}</span>
+        <div className="actions-row">
+          <span className="badge">{orderStatusLabel(order.status)}</span>
+          {canWriteOrder ? (
+            <button
+              className="btn btn-danger btn-small"
+              type="button"
+              onClick={() => void onDeleteOrder()}
+            >
+              Eliminar pedido
+            </button>
+          ) : null}
+        </div>
       </header>
 
       {error ? <p className="error">{error}</p> : null}

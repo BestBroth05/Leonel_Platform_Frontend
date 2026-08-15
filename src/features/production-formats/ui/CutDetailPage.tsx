@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiClientError } from "../../../shared/api/http";
 import { useApi, useCan } from "../../../shared/api/use-api";
 import type { Cut, CutOrderAssignment, CutReceipt } from "../../../shared/types/domain";
 import { cutStatusLabel, orderStatusLabel } from "../../../shared/i18n/labels";
 import {
   createCutReceipt,
+  deleteCut,
   deleteCutReceipt,
   getCut,
   listCutOrders,
@@ -15,6 +16,7 @@ import {
 
 export function CutDetailPage() {
   const { formatId = "", cutId = "" } = useParams();
+  const navigate = useNavigate();
   const api = useApi();
   const canWrite = useCan("orders.write");
   const [cut, setCut] = useState<Cut | null>(null);
@@ -118,6 +120,18 @@ export function CutDetailPage() {
     }
   }
 
+  async function onDeleteCut() {
+    if (!canWrite || !cut) return;
+    if (!window.confirm(`¿Eliminar el corte ${cut.number}?`)) return;
+    setError(null);
+    try {
+      await deleteCut(api, cut.id);
+      navigate(`/production-formats/${formatId}`);
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "No se pudo eliminar el corte");
+    }
+  }
+
   if (loading && !cut) {
     return (
       <section className="page">
@@ -156,7 +170,14 @@ export function CutDetailPage() {
             Estilo {cut.style} · Plan {cut.workPlan}
           </p>
         </div>
-        <span className="badge">{cutStatusLabel(cut.status)}</span>
+        <div className="actions-row">
+          <span className="badge">{cutStatusLabel(cut.status)}</span>
+          {canWrite ? (
+            <button className="btn btn-danger btn-small" type="button" onClick={() => void onDeleteCut()}>
+              Eliminar corte
+            </button>
+          ) : null}
+        </div>
       </header>
 
       {error ? <p className="error">{error}</p> : null}

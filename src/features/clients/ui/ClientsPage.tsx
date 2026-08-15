@@ -3,7 +3,7 @@ import { ApiClientError } from "../../../shared/api/http";
 import { useApi, useCan } from "../../../shared/api/use-api";
 import { weekdayLabel } from "../../../shared/i18n/labels";
 import { WEEKDAYS, type Client, type Weekday } from "../../../shared/types/domain";
-import { createClient, listClients, updateClient } from "../infrastructure/clients-api";
+import { createClient, deleteClient, listClients, updateClient } from "../infrastructure/clients-api";
 
 function WeekdaySelect({
   value,
@@ -133,6 +133,25 @@ export function ClientsPage() {
       await load();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "No se pudo actualizar");
+    }
+  }
+
+  async function onDelete(client: Client) {
+    if (!canWrite) return;
+    if (
+      !window.confirm(
+        `¿Eliminar el cliente "${client.name}"? Esta acción no se puede deshacer desde la lista.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      await deleteClient(api, client.id);
+      if (editingId === client.id) cancelEdit();
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "No se pudo eliminar");
     }
   }
 
@@ -274,6 +293,13 @@ export function ClientsPage() {
                         onClick={() => void toggleActive(client)}
                       >
                         {client.isActive ? "Desactivar" : "Activar"}
+                      </button>
+                      <button
+                        className="btn btn-danger btn-small"
+                        type="button"
+                        onClick={() => void onDelete(client)}
+                      >
+                        Eliminar
                       </button>
                     </td>
                   ) : null}

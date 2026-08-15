@@ -6,6 +6,7 @@ import type { Client, ProductionFormat } from "../../../shared/types/domain";
 import { listClients } from "../../clients/infrastructure/clients-api";
 import {
   createProductionFormat,
+  deleteProductionFormat,
   listProductionFormats,
 } from "../infrastructure/production-formats-api";
 
@@ -65,6 +66,24 @@ export function ProductionFormatsPage() {
       setError(err instanceof ApiClientError ? err.message : "No se pudo crear");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onDelete(format: ProductionFormat) {
+    if (!canWrite) return;
+    if (
+      !window.confirm(
+        `¿Eliminar el formato ${format.number}? También se eliminarán sus cortes y pedidos.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      await deleteProductionFormat(api, format.id);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "No se pudo eliminar");
     }
   }
 
@@ -157,10 +176,19 @@ export function ProductionFormatsPage() {
                   <td>{format.cutsCount}</td>
                   <td>{format.ordersCount}</td>
                   <td>{new Date(format.createdAt).toLocaleDateString("es-MX")}</td>
-                  <td>
+                  <td className="actions-cell">
                     <Link className="link" to={`/production-formats/${format.id}`}>
                       Abrir
                     </Link>
+                    {canWrite ? (
+                      <button
+                        className="btn btn-danger btn-small"
+                        type="button"
+                        onClick={() => void onDelete(format)}
+                      >
+                        Eliminar
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               ))}

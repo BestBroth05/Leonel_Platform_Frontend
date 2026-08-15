@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiClientError } from "../../../shared/api/http";
 import { useApi, useCan } from "../../../shared/api/use-api";
 import type {
@@ -14,9 +14,11 @@ import {
   orderStatusLabel,
 } from "../../../shared/i18n/labels";
 import { listCatalog } from "../../catalogs/infrastructure/catalogs-api";
-import { createOrder } from "../../orders/infrastructure/orders-api";
+import { createOrder, deleteOrder } from "../../orders/infrastructure/orders-api";
 import {
   createCut,
+  deleteCut,
+  deleteProductionFormat,
   getProductionFormat,
   listCuts,
   listFormatOrders,
@@ -26,6 +28,7 @@ type Tab = "cuts" | "orders";
 
 export function ProductionFormatDetailPage() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const api = useApi();
   const canWrite = useCan("orders.write");
   const [tab, setTab] = useState<Tab>("cuts");
@@ -128,6 +131,48 @@ export function ProductionFormatDetailPage() {
     }
   }
 
+  async function onDeleteCut(cut: Cut) {
+    if (!canWrite) return;
+    if (!window.confirm(`¿Eliminar el corte ${cut.number}?`)) return;
+    setError(null);
+    try {
+      await deleteCut(api, cut.id);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "No se pudo eliminar el corte");
+    }
+  }
+
+  async function onDeleteOrder(order: Order) {
+    if (!canWrite) return;
+    if (!window.confirm(`¿Eliminar el pedido ${order.number}?`)) return;
+    setError(null);
+    try {
+      await deleteOrder(api, order.id);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "No se pudo eliminar el pedido");
+    }
+  }
+
+  async function onDeleteFormat() {
+    if (!canWrite || !format) return;
+    if (
+      !window.confirm(
+        `¿Eliminar el formato ${format.number}? También se eliminarán sus cortes y pedidos.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      await deleteProductionFormat(api, format.id);
+      navigate("/production-formats");
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "No se pudo eliminar el formato");
+    }
+  }
+
   async function onCreateOrder(event: FormEvent) {
     event.preventDefault();
     if (!canWrite || !id || !format) return;
@@ -208,6 +253,15 @@ export function ProductionFormatDetailPage() {
             {format.ordersCount} pedido(s)
           </p>
         </div>
+        {canWrite ? (
+          <button
+            className="btn btn-danger btn-small"
+            type="button"
+            onClick={() => void onDeleteFormat()}
+          >
+            Eliminar formato
+          </button>
+        ) : null}
       </header>
 
       {error ? <p className="error">{error}</p> : null}
@@ -307,13 +361,22 @@ export function ProductionFormatDetailPage() {
                       <td>
                         <span className="badge">{cutStatusLabel(cut.status)}</span>
                       </td>
-                      <td>
+                      <td className="actions-cell">
                         <Link
                           className="link"
                           to={`/production-formats/${id}/cuts/${cut.id}`}
                         >
                           Abrir
                         </Link>
+                        {canWrite ? (
+                          <button
+                            className="btn btn-danger btn-small"
+                            type="button"
+                            onClick={() => void onDeleteCut(cut)}
+                          >
+                            Eliminar
+                          </button>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
@@ -500,10 +563,19 @@ export function ProductionFormatDetailPage() {
                       <td>
                         <span className="badge">{orderStatusLabel(order.status)}</span>
                       </td>
-                      <td>
+                      <td className="actions-cell">
                         <Link className="link" to={`/orders/${order.id}`}>
                           Abrir
                         </Link>
+                        {canWrite ? (
+                          <button
+                            className="btn btn-danger btn-small"
+                            type="button"
+                            onClick={() => void onDeleteOrder(order)}
+                          >
+                            Eliminar
+                          </button>
+                        ) : null}
                       </td>
                     </tr>
                   ))}

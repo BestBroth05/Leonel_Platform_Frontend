@@ -4,6 +4,7 @@ import { useApi, useCan } from "../../../shared/api/use-api";
 import type { CatalogItem, CatalogKind } from "../../../shared/types/domain";
 import {
   createCatalogItem,
+  deleteCatalogItem,
   listCatalog,
   updateCatalogItem,
 } from "../infrastructure/catalogs-api";
@@ -95,6 +96,22 @@ export function CatalogsPage() {
       await load();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "No se pudo actualizar");
+    }
+  }
+
+  async function onDelete(item: CatalogItem) {
+    if (!canWrite) return;
+    if (!window.confirm(`¿Eliminar "${item.name}" del catálogo?`)) return;
+    setError(null);
+    try {
+      await deleteCatalogItem(api, kind, item.id);
+      if (editingId === item.id) {
+        setEditingId(null);
+        setEditName("");
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "No se pudo eliminar");
     }
   }
 
@@ -197,6 +214,13 @@ export function CatalogsPage() {
                         onClick={() => void toggleActive(item)}
                       >
                         {item.isActive ? "Desactivar" : "Activar"}
+                      </button>
+                      <button
+                        className="btn btn-danger btn-small"
+                        type="button"
+                        onClick={() => void onDelete(item)}
+                      >
+                        Eliminar
                       </button>
                     </td>
                   ) : null}
