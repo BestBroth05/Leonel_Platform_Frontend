@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ApiClientError } from "../../../shared/api/http";
 import { useApi, useCan } from "../../../shared/api/use-api";
@@ -14,6 +14,11 @@ import {
   clientWeekStatusLabel,
   formatMxn,
 } from "../../../shared/i18n/labels";
+import {
+  aggregateCutFlow,
+  DonutChart,
+  squaredSlices,
+} from "../../../shared/ui/DonutChart";
 import { listClients } from "../../clients/infrastructure/clients-api";
 import {
   closeClientWeek,
@@ -147,7 +152,12 @@ export function ClientWeeksPage() {
         setSelectedWeekId(nextSelected);
 
         if (open) {
-          // keep preview cleared until user asks
+          try {
+            const result = await previewCloseClientWeek(api, open.id);
+            setPreview(result);
+          } catch {
+            setPreview(null);
+          }
         } else if (nextSelected) {
           const current = await getCurrentSnapshot(api, nextSelected).catch(() => null);
           setSnapshot(current);
@@ -288,6 +298,14 @@ export function ClientWeeksPage() {
     }
   }
 
+  const payload =
+    snapshot && isSnapshotPayload(snapshot.payload) ? snapshot.payload : null;
+  const chartCuts = preview?.cuts ?? payload?.cuts ?? [];
+  const flowSlices = useMemo(() => aggregateCutFlow(chartCuts), [chartCuts]);
+  const statusSlices = useMemo(() => squaredSlices(chartCuts), [chartCuts]);
+  const squaredCount = chartCuts.filter((c) => c.squared).length;
+  const selectedClientName = clients.find((c) => c.id === clientId)?.name ?? "Cliente";
+
   if (!canRead) {
     return (
       <section className="page">
@@ -296,15 +314,14 @@ export function ClientWeeksPage() {
     );
   }
 
-  const payload =
-    snapshot && isSnapshotPayload(snapshot.payload) ? snapshot.payload : null;
-
   return (
     <section className="page">
       <header className="page-header">
         <div>
           <h1>Cuadre semanal</h1>
-          <p className="muted">Apertura, previsualización y cierre por cliente</p>
+          <p className="muted">
+            Mira de un vistazo si la semana ya cuadra y cuánto se puede cobrar.
+          </p>
         </div>
       </header>
 
@@ -335,56 +352,75 @@ export function ClientWeeksPage() {
         <p className="muted">Cargando…</p>
       ) : (
         <>
-          <div className="panel">
-            <h2>Semana abierta</h2>
-            {openWeek ? (
-              <>
-                <p>
-                  Del <strong>{openWeek.startDate}</strong>
-                  {openWeek.endDate ? (
-                    <>
-                      {" "}
-                      al <strong>{openWeek.endDate}</strong>
-                    </>
-                  ) : (
-                    " (sin fecha de cierre)"
-                  )}{" "}
-                  · Abierta el{" "}
-                  {new Date(openWeek.openedAt).toLocaleString("es-MX")}
-                </p>
-                <div className="actions-row">
-                  <button
-                    className="btn btn-ghost btn-inline"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void onPreview()}
-                  >
-                    Previsualizar cierre
-                  </button>
-                  <button
-                    className="btn btn-primary btn-inline"
-                    type="button"
-                    disabled={busy || !preview?.canClose}
-                    onClick={() => void onClose()}
-                  >
-                    Cerrar semana
-                  </button>
-                </div>
-                {preview && !preview.canClose ? (
-                  <p className="error">
-                    No se puede cerrar: hay cortes sin cuadrar.
-                  </p>
-                ) : null}
-                {!preview ? (
+          <div className="panel status-hero">
+            <div className="status-hero-copy">
+              <p className="eyebrow">{selectedClientName}</p>
+              {openWeek ? (
+                <>
+                  <h2>
+                    {preview?.canClose
+                      ? "Lista para cerrar"
+                      : preview
+                        ? "Todavía hay cortes pendientes"
+                        : "Semana abierta"}
+                  </h2>
                   <p className="muted">
-                    Previsualiza el cierre para habilitar el botón de cerrar.
+                    Del <strong>{openWeek.startDate}</strong>
+                    {openWeek.endDate ? (
+                      <>
+                        {" "}
+                        al <strong>{openWeek.endDate}</strong>
+                      </>
+                    ) : null}
+                    . Abierta el {new Date(openWeek.openedAt).toLocaleString("es-MX")}.
                   </p>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <p className="muted">No hay semana OPEN para este cliente.</p>
-                {canWrite ? (
+                  {preview ? (
+                    <div className="status-hero-stats">
+                      <div>
+                        <span>Cortes cuadrados</span>
+                        <strong>
+                          {squaredCount}/{chartCuts.length}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>Por cobrar (entregas)</span>
+                        <strong>
+                          {preview.weeklyBillableQuantity.toLocaleString("es-MX")} ·{" "}
+                          {formatMxn(preview.weeklyBillableAmount)}
+                        </strong>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <h2>No hay semana abierta</h2>
+                  <p className="muted">
+                    Abre una semana para empezar a registrar recepciones y movimientos.
+                  </p>
+                </>
+              )}
+              <div className="actions-row">
+                {openWeek ? (
+                  <>
+                    <button
+                      className="btn btn-ghost btn-inline"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void onPreview()}
+                    >
+                      Actualizar avance
+                    </button>
+                    <button
+                      className="btn btn-primary btn-inline"
+                      type="button"
+                      disabled={busy || !preview?.canClose}
+                      onClick={() => void onClose()}
+                    >
+                      Cerrar semana
+                    </button>
+                  </>
+                ) : canWrite ? (
                   <button
                     className="btn btn-primary btn-inline"
                     type="button"
@@ -394,23 +430,60 @@ export function ClientWeeksPage() {
                     Abrir semana
                   </button>
                 ) : null}
-              </>
-            )}
+              </div>
+              {preview && !preview.canClose ? (
+                <p className="error">
+                  Para cerrar, todos los cortes con actividad deben quedar cuadrados.
+                </p>
+              ) : null}
+            </div>
           </div>
+
+          {chartCuts.length > 0 ? (
+            <div className="panel">
+              <h2>Resumen visual</h2>
+              <p className="muted">
+                Dos lecturas rápidas: ¿ya cuadra la semana? y ¿dónde están las prendas?
+              </p>
+              <div className="chart-grid">
+                <DonutChart
+                  title="Estado de cortes"
+                  slices={statusSlices}
+                  centerValue={`${squaredCount}/${chartCuts.length || 0}`}
+                  centerLabel="cuadrados"
+                />
+                <DonutChart
+                  title="Distribución de prendas"
+                  slices={flowSlices}
+                  centerValue={
+                    preview
+                      ? String(preview.weeklyBillableQuantity.toLocaleString("es-MX"))
+                      : payload
+                        ? String(payload.weeklyBillableQuantity.toLocaleString("es-MX"))
+                        : "—"
+                  }
+                  centerLabel="cobrables"
+                />
+              </div>
+            </div>
+          ) : openWeek ? (
+            <div className="panel">
+              <h2>Resumen visual</h2>
+              <p className="muted">
+                Aún no hay actividad de cortes en esta semana. Cuando registres recepciones o
+                movimientos, aquí verás las gráficas.
+              </p>
+            </div>
+          ) : null}
 
           {preview && openWeek && selectedWeekId === openWeek.id ? (
             <div className="panel">
-              <h2>Previsualización de cierre</h2>
-              <p className="muted">
-                Facturable: {preview.weeklyBillableQuantity.toLocaleString("es-MX")}{" "}
-                prendas · {formatMxn(preview.weeklyBillableAmount)} ·{" "}
-                {preview.canClose ? "Lista para cerrar" : "Pendiente de cuadrar"}
-              </p>
-              <CutsSettlementTable cuts={preview.cuts} title="Cortes del periodo" />
+              <h2>Detalle de cortes</h2>
+              <CutsSettlementTable cuts={preview.cuts} title="Todos los cortes del periodo" />
               {preview.unsquaredCuts.length > 0 ? (
                 <CutsSettlementTable
                   cuts={preview.unsquaredCuts}
-                  title="Cortes sin cuadrar"
+                  title="Pendientes de cuadrar"
                 />
               ) : null}
             </div>
@@ -425,7 +498,7 @@ export function ClientWeeksPage() {
 
           {selectedWeek?.status === "CLOSED" ? (
             <div className="panel">
-              <h2>Snapshot vigente</h2>
+              <h2>Semana cerrada</h2>
               {snapshot && payload ? (
                 <>
                   <p className="muted">
@@ -438,6 +511,20 @@ export function ClientWeeksPage() {
                     {payload.weeklyBillableQuantity.toLocaleString("es-MX")} prendas ·{" "}
                     {formatMxn(payload.weeklyBillableAmount)}
                   </p>
+                  <div className="chart-grid">
+                    <DonutChart
+                      title="Estado de cortes"
+                      slices={squaredSlices(payload.cuts)}
+                      centerValue={`${payload.cuts.filter((c) => c.squared).length}/${payload.cuts.length}`}
+                      centerLabel="cuadrados"
+                    />
+                    <DonutChart
+                      title="Distribución de prendas"
+                      slices={aggregateCutFlow(payload.cuts)}
+                      centerValue={payload.weeklyBillableQuantity.toLocaleString("es-MX")}
+                      centerLabel="cobrables"
+                    />
+                  </div>
                   <CutsSettlementTable cuts={payload.cuts} title="Resumen de cortes" />
                   {canWrite ? (
                     <button

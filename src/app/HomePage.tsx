@@ -11,10 +11,8 @@ import { listProductionFormats } from "../features/production-formats/infrastruc
 import { ApiClientError } from "../shared/api/http";
 import { useApi, useCan } from "../shared/api/use-api";
 import {
-  clientWeekStatusLabel,
   formatMxn,
   orderStatusLabel,
-  weekdayLabel,
 } from "../shared/i18n/labels";
 import type {
   Client,
@@ -23,6 +21,7 @@ import type {
   ProductionFormat,
   WeekClosePreview,
 } from "../shared/types/domain";
+import { DonutChart, squaredSlices } from "../shared/ui/DonutChart";
 
 type WeekSummary = {
   client: Client;
@@ -70,9 +69,9 @@ export function HomePage() {
       ]);
 
       setClients(clientsRes.items);
-      setFormats(formatsRes.items);
+      setFormats(formatsRes.items.slice(0, 4));
       setFormatsTotal(formatsRes.total);
-      setOrders(ordersRes.items.slice(0, 8));
+      setOrders(ordersRes.items.slice(0, 5));
       setOrdersTotal(ordersRes.total);
 
       if (canWeeklySettlement && clientsRes.items.length > 0) {
@@ -122,17 +121,17 @@ export function HomePage() {
   const activeOrders = orders.filter(
     (o) => o.status !== "COMPLETED" && o.status !== "CANCELLED",
   ).length;
-  const totalCuts = formats.reduce((sum, f) => sum + f.cutsCount, 0);
-  const totalFormatOrders = formats.reduce((sum, f) => sum + f.ordersCount, 0);
+
+  const focusWeek = weekSummaries[0];
+  const focusCuts = focusWeek?.preview?.cuts ?? [];
 
   return (
     <section className="page">
       <header className="page-header">
         <div>
-          <h1>Inicio</h1>
+          <h1>Hola, {user?.name?.split(" ")[0] ?? "equipo"}</h1>
           <p className="muted">
-            Hola, {user?.name}. Resumen operativo del taller: formatos, pedidos y
-            cuadre semanal.
+            Resumen claro del taller: qué sigue, qué falta y a dónde ir.
           </p>
         </div>
         <button className="btn btn-ghost btn-inline" type="button" onClick={() => void load()}>
@@ -145,254 +144,52 @@ export function HomePage() {
 
       {!loading ? (
         <>
-          <div className="stats">
-            <div className="stat">
-              <span>Clientes activos</span>
+          <div className="home-glance">
+            <article className="glance-card">
+              <span>Clientes</span>
               <strong>{clients.length.toLocaleString("es-MX")}</strong>
-            </div>
-            <div className="stat">
+              <p>activos</p>
+            </article>
+            <article className="glance-card">
               <span>Formatos</span>
               <strong>{formatsTotal.toLocaleString("es-MX")}</strong>
-            </div>
-            <div className="stat">
-              <span>Cortes / pedidos en formatos</span>
-              <strong>
-                {totalCuts.toLocaleString("es-MX")} /{" "}
-                {totalFormatOrders.toLocaleString("es-MX")}
-              </strong>
-            </div>
-            <div className="stat">
-              <span>Pedidos totales</span>
-              <strong>{ordersTotal.toLocaleString("es-MX")}</strong>
-            </div>
-            <div className="stat">
-              <span>Semanas OPEN</span>
+              <p>en producción</p>
+            </article>
+            <article className="glance-card">
+              <span>Pedidos activos</span>
+              <strong>{activeOrders.toLocaleString("es-MX")}</strong>
+              <p>de {ordersTotal.toLocaleString("es-MX")} totales</p>
+            </article>
+            <article className={`glance-card${readyToClose > 0 ? " glance-ok" : blockedWeeks > 0 ? " glance-warn" : ""}`}>
+              <span>Cuadre</span>
               <strong>{openWeeksCount.toLocaleString("es-MX")}</strong>
-            </div>
-            <div className="stat">
-              <span>Listas para cerrar</span>
-              <strong>{readyToClose.toLocaleString("es-MX")}</strong>
-            </div>
+              <p>
+                {readyToClose > 0
+                  ? `${readyToClose} lista(s) para cerrar`
+                  : blockedWeeks > 0
+                    ? `${blockedWeeks} con pendientes`
+                    : "semanas abiertas"}
+              </p>
+            </article>
           </div>
 
-          {canOrders ? (
-            <div className="panel">
-              <div className="panel-heading-row">
-                <div>
-                  <h2>Formatos de producción</h2>
-                  <p className="muted">
-                    Formatos registrados con su cliente, cortes y pedidos.
-                  </p>
-                </div>
-                <Link className="link" to="/production-formats">
-                  Ver todos →
-                </Link>
-              </div>
-              {formats.length === 0 ? (
-                <p className="muted">Aún no hay formatos. Crea el primero desde Formatos.</p>
-              ) : (
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Formato</th>
-                        <th>Cliente</th>
-                        <th>Cortes</th>
-                        <th>Pedidos</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {formats.map((format) => (
-                        <tr key={format.id}>
-                          <td>
-                            <strong>{format.number}</strong>
-                          </td>
-                          <td>{format.clientName ?? "Sin cliente"}</td>
-                          <td>{format.cutsCount.toLocaleString("es-MX")}</td>
-                          <td>{format.ordersCount.toLocaleString("es-MX")}</td>
-                          <td>
-                            <Link className="link" to={`/production-formats/${format.id}`}>
-                              Abrir
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          ) : null}
-
-          {canWeeklySettlement ? (
-            <div className="panel">
-              <div className="panel-heading-row">
-                <div>
-                  <h2>Cuadre semanal</h2>
-                  <p className="muted">
-                    Semanas abiertas por cliente y avance de cortes cuadrados.
-                    {blockedWeeks > 0
-                      ? ` ${blockedWeeks} semana(s) con cortes pendientes.`
-                      : ""}
-                  </p>
-                </div>
-                <Link className="link" to="/weekly-settlement">
-                  Ir al cuadre →
-                </Link>
-              </div>
-
-              {weekSummaries.length === 0 ? (
-                <p className="muted">
-                  Ningún cliente tiene semana OPEN. Ábrela desde Cuadre semanal.
-                </p>
-              ) : (
-                <div className="home-week-list">
-                  {weekSummaries.map(({ client, week, preview, previewError }) => {
-                    const squared = preview?.cuts.filter((c) => c.squared).length ?? 0;
-                    const totalCutsInWeek = preview?.cuts.length ?? 0;
-                    const unsquared = preview?.unsquaredCuts.length ?? 0;
-                    return (
-                      <article key={week.id} className="home-week-card">
-                        <div className="home-week-card-head">
-                          <div>
-                            <strong>{client.name}</strong>
-                            <p className="muted">
-                              Semana desde {week.startDate}
-                              {client.weekOpensOn || client.weekClosesOn
-                                ? ` · Agenda: abre ${weekdayLabel(client.weekOpensOn)} / cierra ${weekdayLabel(client.weekClosesOn)}`
-                                : ""}
-                            </p>
-                          </div>
-                          <span
-                            className={
-                              preview?.canClose
-                                ? "badge ok"
-                                : preview
-                                  ? "badge off"
-                                  : "badge"
-                            }
-                          >
-                            {preview?.canClose
-                              ? "Lista para cerrar"
-                              : clientWeekStatusLabel(week.status)}
-                          </span>
-                        </div>
-
-                        {previewError ? (
-                          <p className="error">{previewError}</p>
-                        ) : preview ? (
-                          <div className="home-week-metrics">
-                            <div>
-                              <span>Cortes</span>
-                              <strong>
-                                {squared}/{totalCutsInWeek} cuadrados
-                              </strong>
-                            </div>
-                            <div>
-                              <span>Pendientes</span>
-                              <strong>{unsquared.toLocaleString("es-MX")}</strong>
-                            </div>
-                            <div>
-                              <span>Cobrable (entregas)</span>
-                              <strong>
-                                {preview.weeklyBillableQuantity.toLocaleString("es-MX")}{" "}
-                                · {formatMxn(preview.weeklyBillableAmount)}
-                              </strong>
-                            </div>
-                          </div>
-                        ) : null}
-
-                        {preview && preview.unsquaredCuts.length > 0 ? (
-                          <ul className="home-unsquared-list">
-                            {preview.unsquaredCuts.slice(0, 4).map((cut) => (
-                              <li key={cut.cutId}>
-                                <strong>{cut.cutNumber}</strong>: pendiente{" "}
-                                {cut.pendingByCut.toLocaleString("es-MX")}, compostura{" "}
-                                {cut.inRepairByCut.toLocaleString("es-MX")}, sin asignar{" "}
-                                {cut.unassignedByCut.toLocaleString("es-MX")}
-                                {cut.reasons[0] ? ` — ${cut.reasons[0]}` : ""}
-                              </li>
-                            ))}
-                            {preview.unsquaredCuts.length > 4 ? (
-                              <li className="muted">
-                                +{preview.unsquaredCuts.length - 4} corte(s) más
-                              </li>
-                            ) : null}
-                          </ul>
-                        ) : null}
-
-                        <p>
-                          <Link
-                            className="link"
-                            to={`/weekly-settlement?clientId=${client.id}`}
-                          >
-                            Ver cuadre de {client.name} →
-                          </Link>
-                        </p>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : null}
-
-          {canOrders ? (
-            <div className="panel">
-              <div className="panel-heading-row">
-                <div>
-                  <h2>Pedidos recientes</h2>
-                  <p className="muted">
-                    {activeOrders.toLocaleString("es-MX")} activos en esta página ·{" "}
-                    {ordersTotal.toLocaleString("es-MX")} en total
-                  </p>
-                </div>
-              </div>
-              {orders.length === 0 ? (
-                <p className="muted">Sin pedidos todavía.</p>
-              ) : (
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Pedido</th>
-                        <th>Cliente</th>
-                        <th>Formato</th>
-                        <th>Cantidad</th>
-                        <th>Estado</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders.map((order) => (
-                        <tr key={order.id}>
-                          <td>
-                            <strong>{order.number}</strong>
-                          </td>
-                          <td>{order.clientName}</td>
-                          <td>{order.productionFormatNumber ?? "—"}</td>
-                          <td>{order.orderQuantity.toLocaleString("es-MX")}</td>
-                          <td>{orderStatusLabel(order.status)}</td>
-                          <td>
-                            <Link className="link" to={`/orders/${order.id}`}>
-                              Abrir
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          ) : null}
-
           <div className="home-grid">
+            {canWeeklySettlement ? (
+              <Link className="home-card home-card-primary" to="/weekly-settlement">
+                <strong>Ir al cuadre semanal</strong>
+                <span>Abre, revisa gráficas y cierra la semana del cliente</span>
+              </Link>
+            ) : null}
+            {canOrders ? (
+              <Link className="home-card" to="/production-formats">
+                <strong>Formatos y cortes</strong>
+                <span>Recepciones, pedidos y movimientos del taller</span>
+              </Link>
+            ) : null}
             {canClients ? (
               <Link className="home-card" to="/clients">
                 <strong>Clientes</strong>
-                <span>Alta, agenda de semana y consulta</span>
+                <span>Alta y agenda semanal</span>
               </Link>
             ) : null}
             {canCatalogs ? (
@@ -401,19 +198,186 @@ export function HomePage() {
                 <span>Marcas, tipos y destinos</span>
               </Link>
             ) : null}
-            {canOrders ? (
-              <Link className="home-card" to="/production-formats">
-                <strong>Formatos de producción</strong>
-                <span>Cortes, recepciones, pedidos y movimientos</span>
-              </Link>
-            ) : null}
-            {canWeeklySettlement ? (
-              <Link className="home-card" to="/weekly-settlement">
-                <strong>Cuadre semanal</strong>
-                <span>Abrir, previsualizar y cerrar semanas</span>
-              </Link>
-            ) : null}
           </div>
+
+          {canWeeklySettlement ? (
+            <div className="panel">
+              <div className="panel-heading-row">
+                <div>
+                  <h2>¿Cómo va el cuadre?</h2>
+                  <p className="muted">
+                    Lo importante: si los cortes ya cuadraron y cuánto se puede cobrar.
+                  </p>
+                </div>
+                <Link className="link" to="/weekly-settlement">
+                  Abrir cuadre →
+                </Link>
+              </div>
+
+              {weekSummaries.length === 0 ? (
+                <p className="muted">
+                  Ningún cliente tiene semana abierta. Entra a Cuadre y abre una.
+                </p>
+              ) : (
+                <div className="home-week-layout">
+                  {focusWeek?.preview && focusCuts.length > 0 ? (
+                    <DonutChart
+                      title={focusWeek.client.name}
+                      slices={squaredSlices(focusCuts)}
+                      centerValue={`${focusCuts.filter((c) => c.squared).length}/${focusCuts.length}`}
+                      centerLabel="cuadrados"
+                      size={160}
+                    />
+                  ) : null}
+
+                  <div className="home-week-list">
+                    {weekSummaries.map(({ client, week, preview, previewError }) => {
+                      const squared = preview?.cuts.filter((c) => c.squared).length ?? 0;
+                      const totalCutsInWeek = preview?.cuts.length ?? 0;
+                      const pct =
+                        totalCutsInWeek > 0
+                          ? Math.round((squared / totalCutsInWeek) * 100)
+                          : 0;
+                      return (
+                        <article key={week.id} className="home-week-card">
+                          <div className="home-week-card-head">
+                            <div>
+                              <strong>{client.name}</strong>
+                              <p className="muted">Desde {week.startDate}</p>
+                            </div>
+                            <span
+                              className={
+                                preview?.canClose
+                                  ? "badge ok"
+                                  : preview
+                                    ? "badge off"
+                                    : "badge"
+                              }
+                            >
+                              {preview?.canClose
+                                ? "Lista para cerrar"
+                                : preview
+                                  ? "Pendiente"
+                                  : "Abierta"}
+                            </span>
+                          </div>
+
+                          {previewError ? (
+                            <p className="error">{previewError}</p>
+                          ) : preview ? (
+                            <>
+                              <div className="progress-block">
+                                <div className="progress-meta">
+                                  <span>
+                                    {squared}/{totalCutsInWeek} cortes cuadrados
+                                  </span>
+                                  <strong>{pct}%</strong>
+                                </div>
+                                <div className="progress-track" aria-hidden="true">
+                                  <div className="progress-fill" style={{ width: `${pct}%` }} />
+                                </div>
+                              </div>
+                              <p className="home-week-billable">
+                                Por cobrar:{" "}
+                                <strong>
+                                  {preview.weeklyBillableQuantity.toLocaleString("es-MX")} prendas ·{" "}
+                                  {formatMxn(preview.weeklyBillableAmount)}
+                                </strong>
+                              </p>
+                              {preview.unsquaredCuts.length > 0 ? (
+                                <p className="muted">
+                                  Faltan {preview.unsquaredCuts.length} corte(s), p. ej.{" "}
+                                  {preview.unsquaredCuts
+                                    .slice(0, 2)
+                                    .map((c) => c.cutNumber)
+                                    .join(", ")}
+                                  .
+                                </p>
+                              ) : (
+                                <p className="muted">Todos los cortes con actividad ya cuadran.</p>
+                              )}
+                            </>
+                          ) : null}
+
+                          <Link
+                            className="link"
+                            to={`/weekly-settlement?clientId=${client.id}`}
+                          >
+                            Ver cuadre →
+                          </Link>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {canOrders ? (
+            <div className="split home-split">
+              <div className="panel">
+                <div className="panel-heading-row">
+                  <div>
+                    <h2>Formatos recientes</h2>
+                    <p className="muted">Acceso rápido a producción</p>
+                  </div>
+                  <Link className="link" to="/production-formats">
+                    Ver todos →
+                  </Link>
+                </div>
+                {formats.length === 0 ? (
+                  <p className="muted">Aún no hay formatos.</p>
+                ) : (
+                  <ul className="simple-list">
+                    {formats.map((format) => (
+                      <li key={format.id}>
+                        <div>
+                          <strong>{format.number}</strong>
+                          <span className="muted">
+                            {format.clientName ?? "Sin cliente"} · {format.cutsCount} cortes ·{" "}
+                            {format.ordersCount} pedidos
+                          </span>
+                        </div>
+                        <Link className="link" to={`/production-formats/${format.id}`}>
+                          Abrir
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="panel">
+                <div className="panel-heading-row">
+                  <div>
+                    <h2>Pedidos recientes</h2>
+                    <p className="muted">{activeOrders} activos ahora</p>
+                  </div>
+                </div>
+                {orders.length === 0 ? (
+                  <p className="muted">Sin pedidos todavía.</p>
+                ) : (
+                  <ul className="simple-list">
+                    {orders.map((order) => (
+                      <li key={order.id}>
+                        <div>
+                          <strong>{order.number}</strong>
+                          <span className="muted">
+                            {order.clientName} · {order.orderQuantity.toLocaleString("es-MX")} ·{" "}
+                            {orderStatusLabel(order.status)}
+                          </span>
+                        </div>
+                        <Link className="link" to={`/orders/${order.id}`}>
+                          Abrir
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          ) : null}
         </>
       ) : null}
     </section>
