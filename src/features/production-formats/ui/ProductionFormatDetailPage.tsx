@@ -405,8 +405,22 @@ export function ProductionFormatDetailPage() {
 
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <span>Cortes del formato (selecciona uno o varios)</span>
+                {cuts.length > 0 &&
+                cuts.every((cut) => cut.availableToAssign <= 0) ? (
+                  <p className="banner banner-warn" role="status">
+                    Ningún corte tiene piezas disponibles. Primero ve a la
+                    pestaña <strong>Cortes</strong>, abre el corte y registra
+                    una recepción parcial. Solo entonces podrás marcar el
+                    checkbox y asignar cantidad al pedido.
+                  </p>
+                ) : (
+                  <p className="muted">
+                    Solo se pueden seleccionar cortes con piezas disponibles
+                    (recibido − ya asignado a otros pedidos).
+                  </p>
+                )}
                 <div className="table-wrap">
-                  <table className="table">
+                  <table className="table table-order-cuts">
                     <thead>
                       <tr>
                         <th />
@@ -422,14 +436,26 @@ export function ProductionFormatDetailPage() {
                     <tbody>
                       {cuts.map((cut) => {
                         const selected = selectedCutIds.includes(cut.id);
+                        const canSelect = cut.availableToAssign > 0 || selected;
                         return (
-                          <tr key={cut.id}>
+                          <tr
+                            key={cut.id}
+                            className={canSelect ? undefined : "row-disabled"}
+                          >
                             <td>
                               <input
                                 type="checkbox"
                                 checked={selected}
                                 onChange={() => toggleCut(cut)}
-                                disabled={cut.availableToAssign <= 0 && !selected}
+                                disabled={!canSelect}
+                                title={
+                                  canSelect
+                                    ? "Seleccionar corte"
+                                    : cut.totalReceived <= 0
+                                      ? "Sin recepciones: registra piezas recibidas en el corte"
+                                      : "Sin disponible: ya está asignado a otros pedidos"
+                                }
+                                aria-label={`Seleccionar corte ${cut.number}`}
                               />
                             </td>
                             <td>{cut.number}</td>
@@ -437,7 +463,12 @@ export function ProductionFormatDetailPage() {
                             <td>{cut.workPlan}</td>
                             <td>{cut.totalReceived.toLocaleString("es-MX")}</td>
                             <td>{cut.totalAssigned.toLocaleString("es-MX")}</td>
-                            <td>{cut.availableToAssign.toLocaleString("es-MX")}</td>
+                            <td>
+                              {cut.availableToAssign.toLocaleString("es-MX")}
+                              {!canSelect ? (
+                                <span className="muted"> · sin stock</span>
+                              ) : null}
+                            </td>
                             <td>
                               {selected ? (
                                 <input
@@ -454,6 +485,13 @@ export function ProductionFormatDetailPage() {
                                   }
                                   required
                                 />
+                              ) : !canSelect ? (
+                                <Link
+                                  className="link"
+                                  to={`/production-formats/${id}/cuts/${cut.id}`}
+                                >
+                                  Recibir
+                                </Link>
                               ) : (
                                 "—"
                               )}
