@@ -40,7 +40,8 @@ Deploy automático desde `develop` vía Actions:
 Requisitos en el repo:
 
 1. Pages → Source: **GitHub Actions**
-2. Variable `VITE_API_URL` con la URL pública de la API
+2. Variable `VITE_API_URL` con la URL pública de la API (producción AWS):
+   `https://api-test.path-bus.com/leonel`
 
 Detalle: [`.github/workflows/README.md`](.github/workflows/README.md)
 
