@@ -11,6 +11,7 @@ import {
   getCut,
   listCutOrders,
   listCutReceipts,
+  updateCut,
   updateCutReceipt,
 } from "../infrastructure/production-formats-api";
 
@@ -25,6 +26,11 @@ export function CutDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [editNumber, setEditNumber] = useState("");
+  const [editWorkPlan, setEditWorkPlan] = useState("");
+  const [editStyle, setEditStyle] = useState("");
+  const [editExpected, setEditExpected] = useState("");
 
   const [folioNumber, setFolioNumber] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -46,6 +52,10 @@ export function CutDetailPage() {
         listCutOrders(api, cutId),
       ]);
       setCut(c);
+      setEditNumber(c.number);
+      setEditWorkPlan(c.workPlan);
+      setEditStyle(c.style);
+      setEditExpected(String(c.expectedQuantity));
       setReceipts(r);
       setCutOrders(o);
     } catch (err) {
@@ -58,6 +68,26 @@ export function CutDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function onSaveCut(event: FormEvent) {
+    event.preventDefault();
+    if (!canWrite || !cutId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updateCut(api, cutId, {
+        number: editNumber.trim(),
+        workPlan: editWorkPlan.trim(),
+        style: editStyle.trim(),
+        expectedQuantity: Number(editExpected),
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "No se pudo actualizar el corte");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function onCreate(event: FormEvent) {
     event.preventDefault();
@@ -181,6 +211,53 @@ export function CutDetailPage() {
       </header>
 
       {error ? <p className="error">{error}</p> : null}
+
+      {canWrite ? (
+        <form className="panel form-grid" onSubmit={onSaveCut}>
+          <h2>Editar corte</h2>
+          <label className="field">
+            <span>Número</span>
+            <input
+              className="input"
+              value={editNumber}
+              onChange={(e) => setEditNumber(e.target.value)}
+              required
+            />
+          </label>
+          <label className="field">
+            <span>Plan de trabajo</span>
+            <input
+              className="input"
+              value={editWorkPlan}
+              onChange={(e) => setEditWorkPlan(e.target.value)}
+              required
+            />
+          </label>
+          <label className="field">
+            <span>Estilo</span>
+            <input
+              className="input"
+              value={editStyle}
+              onChange={(e) => setEditStyle(e.target.value)}
+              required
+            />
+          </label>
+          <label className="field">
+            <span>Cantidad esperada</span>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              value={editExpected}
+              onChange={(e) => setEditExpected(e.target.value)}
+              required
+            />
+          </label>
+          <button className="btn btn-primary btn-inline" type="submit" disabled={saving}>
+            {saving ? "Guardando…" : "Guardar cambios"}
+          </button>
+        </form>
+      ) : null}
 
       <div className="stats">
         <div className="stat">

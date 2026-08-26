@@ -4,6 +4,7 @@ import { ApiClientError } from "../../../shared/api/http";
 import { useApi, useCan } from "../../../shared/api/use-api";
 import type {
   CatalogItem,
+  Client,
   Cut,
   Order,
   ProductionFormat,
@@ -14,6 +15,7 @@ import {
   orderStatusLabel,
 } from "../../../shared/i18n/labels";
 import { listCatalog } from "../../catalogs/infrastructure/catalogs-api";
+import { listClients } from "../../clients/infrastructure/clients-api";
 import { createOrder, deleteOrder } from "../../orders/infrastructure/orders-api";
 import {
   createCut,
@@ -22,6 +24,7 @@ import {
   getProductionFormat,
   listCuts,
   listFormatOrders,
+  updateProductionFormat,
 } from "../infrastructure/production-formats-api";
 
 type Tab = "cuts" | "orders";
@@ -35,11 +38,15 @@ export function ProductionFormatDetailPage() {
   const [format, setFormat] = useState<ProductionFormat | null>(null);
   const [cuts, setCuts] = useState<Cut[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [brands, setBrands] = useState<CatalogItem[]>([]);
   const [pantTypes, setPantTypes] = useState<CatalogItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [editFormatNumber, setEditFormatNumber] = useState("");
+  const [editClientId, setEditClientId] = useState("");
 
   const [cutNumber, setCutNumber] = useState("");
   const [workPlan, setWorkPlan] = useState("");
@@ -59,16 +66,20 @@ export function ProductionFormatDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [f, c, o, brandList, pantList] = await Promise.all([
+      const [f, c, o, brandList, pantList, clientPage] = await Promise.all([
         getProductionFormat(api, id),
         listCuts(api, id),
         listFormatOrders(api, id),
         listCatalog(api, "brands", true),
         listCatalog(api, "pant-types", true),
+        listClients(api, { activeOnly: true, pageSize: 100 }),
       ]);
       setFormat(f);
+      setEditFormatNumber(f.number);
+      setEditClientId(f.clientId ?? "");
       setCuts(c);
       setOrders(o.items);
+      setClients(clientPage.items);
       setBrands(brandList);
       setPantTypes(pantList);
       setBrandId((prev) => prev || brandList[0]?.id || "");
@@ -152,6 +163,24 @@ export function ProductionFormatDetailPage() {
       await load();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "No se pudo eliminar el pedido");
+    }
+  }
+
+  async function onSaveFormat(event: FormEvent) {
+    event.preventDefault();
+    if (!canWrite || !id) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updateProductionFormat(api, id, {
+        number: editFormatNumber.trim(),
+        clientId: editClientId || undefined,
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "No se pudo actualizar el formato");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -265,6 +294,47 @@ export function ProductionFormatDetailPage() {
       </header>
 
       {error ? <p className="error">{error}</p> : null}
+
+      {canWrite ? (
+        <form className="panel form-grid" onSubmit={onSaveFormat}>
+          <h2>Editar formato</h2>
+          <label className="field">
+            <span>Número</span>
+            <input
+              className="input"
+              value={editFormatNumber}
+              onChange={(e) => setEditFormatNumber(e.target.value)}
+              required
+            />
+          </label>
+          <label className="field">
+            <span>Cliente</span>
+            <select
+              className="input"
+              value={editClientId}
+              onChange={(e) => setEditClientId(e.target.value)}
+              required
+            >
+              {clients.length === 0 ? (
+                <option value="">Sin clientes activos</option>
+              ) : (
+                clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+          <button
+            className="btn btn-primary btn-inline"
+            type="submit"
+            disabled={saving || !editClientId}
+          >
+            {saving ? "Guardando…" : "Guardar cambios"}
+          </button>
+        </form>
+      ) : null}
 
       <div className="tabs">
         <button
